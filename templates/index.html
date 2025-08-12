@@ -1,0 +1,142 @@
+
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Task Organizer</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='remarkable.css') }}">
+</head>
+<body>
+  <div id="bg-doodle"></div>
+  <div id="page">
+    <header class="masthead">
+      <div class="masthead-row">
+        <div>
+          <h1>Task Organizer</h1>
+          <p class="subtitle">Simple · Local · Focused</p>
+        </div>
+        <div class="controls">
+          <button id="themeToggle" aria-label="Toggle theme">🌙</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- TODAY (draggable) -->
+    <section class="card">
+      <h2>Today <span class="muted">— {{ today_display }}</span></h2>
+
+      <!-- Active block -->
+      <div class="grid head"><div>Task</div><div>Status</div><div>Comment</div></div>
+      <div class="draggable" data-date="{{ today }}">
+        {% for task in today_active %}
+        <div class="grid row item" draggable="true" data-index="{{ loop.index0 }}">
+          <div class="cell">{{ task['task'] }}</div>
+          <div class="cell">
+            <form method="POST" action="{{ url_for('change_status', task_date=today, task_index=loop.index0) }}">
+              <select name="status" onchange="this.form.submit()">
+                {% for s in statuses %}
+                  <option value="{{ s }}" {% if task['status']==s %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+              </select>
+            </form>
+          </div>
+          <div class="cell">
+            <form method="POST" action="{{ url_for('change_comment', task_date=today, task_index=loop.index0) }}">
+              <input class="comment" type="text" name="comment" value="{{ task['comment'] }}" placeholder="Add a note…" onchange="this.form.submit()">
+            </form>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Completed block -->
+      {% if today_completed %}
+      <h3 class="muted group-title">Completed</h3>
+      <div class="draggable completed-group" data-date="{{ today }}">
+        {% set offset = today_active|length %}
+        {% for task in today_completed %}
+        <div class="grid row item completed" draggable="true" data-index="{{ offset + loop.index0 }}">
+          <div class="cell completed">{{ task['task'] }}</div>
+          <div class="cell">{{ task['status'] }}</div>
+          <div class="cell">{{ task['comment'] }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <form class="add grid" method="POST" action="{{ url_for('add_task', task_date=today) }}">
+        <input type="text" name="task" placeholder="New task…" required />
+        <select name="status" disabled><option selected>New</option></select>
+        <input type="text" name="comment" placeholder="Comment (optional)" />
+        <button type="submit">Add</button>
+      </form>
+    </section>
+
+    <!-- YESTERDAY (read-only) -->
+    <section class="card">
+      <h2>Yesterday <span class="muted">— {{ yesterday_display }}</span></h2>
+      <div class="grid head"><div>Task</div><div>Status</div><div>Comment</div></div>
+
+      {% for task in yesterday_active %}
+      <div class="grid row">
+        <div class="cell">{{ task['task'] }}</div>
+        <div class="cell">{{ task['status'] }}</div>
+        <div class="cell">{{ task['comment'] }}</div>
+      </div>
+      {% endfor %}
+
+      {% if yesterday_completed %}
+      <h3 class="muted group-title">Completed</h3>
+      {% for task in yesterday_completed %}
+      <div class="grid row">
+        <div class="cell completed">{{ task['task'] }}</div>
+        <div class="cell">{{ task['status'] }}</div>
+        <div class="cell">{{ task['comment'] }}</div>
+      </div>
+      {% endfor %}
+      {% endif %}
+    </section>
+
+    <!-- ARCHIVES (collapsible) -->
+    <section class="card">
+      <h2>Archives</h2>
+      <div class="accordion">
+        {% for day, tasks in archives.items() %}
+        {% set a_active = tasks | selectattr('status', 'ne', 'Complete') | list %}
+        {% set a_done = tasks | selectattr('status', 'equalto', 'Complete') | list %}
+        <details class="accordion-item">
+          <summary>
+            <span class="archive">{{ day }}</span>
+            <span class="badge">{{ tasks|length }}</span>
+          </summary>
+          <div class="grid head inner"><div>Task</div><div>Status</div><div>Comment</div></div>
+          {% for t in a_active %}
+          <div class="grid row inner">
+            <div class="cell">{{ t['task'] }}</div>
+            <div class="cell">{{ t['status'] }}</div>
+            <div class="cell">{{ t['comment'] }}</div>
+          </div>
+          {% endfor %}
+          {% if a_done %}
+          <h4 class="muted group-title inner">Completed</h4>
+          {% for t in a_done %}
+          <div class="grid row inner">
+            <div class="cell completed">{{ t['task'] }}</div>
+            <div class="cell">{{ t['status'] }}</div>
+            <div class="cell">{{ t['comment'] }}</div>
+          </div>
+          {% endfor %}
+          {% endif %}
+        </details>
+        {% endfor %}
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p>All data stored locally in <code>tasks.json</code></p>
+    </footer>
+  </div>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
