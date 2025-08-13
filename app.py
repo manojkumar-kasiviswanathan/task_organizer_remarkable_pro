@@ -41,6 +41,7 @@ def rollover_tasks():
                 tasks[today].append({
                     "task": t.get("task", ""),
                     "comment": t.get("comment", ""),
+                    "tags": t.get("tags", ""),
                     "status": t.get("status") if t.get("status") != "Complete" else "New",
                 })
 
@@ -111,6 +112,7 @@ def add_task(task_date):
     tasks[task_date].append({
         "task": request.form["task"],
         "comment": request.form.get("comment", ""),
+        "tags": request.form.get("tags", ""),
         "status": "New",
     })
     save_tasks(tasks)
@@ -131,6 +133,16 @@ def change_comment(task_date, task_index):
     tasks = load_tasks()
     if task_date in tasks and 0 <= task_index < len(tasks[task_date]):
         tasks[task_date][task_index]["comment"] = request.form.get("comment", "")
+        save_tasks(tasks)
+    return redirect(url_for("index"))
+
+
+@app.route("/tags/<task_date>/<int:task_index>", methods=["POST"])
+def change_tags(task_date, task_index):
+    """Update comma-separated tags for a task."""
+    tasks = load_tasks()
+    if task_date in tasks and 0 <= task_index < len(tasks[task_date]):
+        tasks[task_date][task_index]["tags"] = request.form.get("tags", "")
         save_tasks(tasks)
     return redirect(url_for("index"))
 

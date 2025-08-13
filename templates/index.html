@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Task Organizer</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='remarkable.css') }}">
 </head>
+
 <body>
   <div id="bg-doodle"></div>
   <div id="page">
@@ -26,46 +28,84 @@
       <h2>Today — {{ today_display }}</h2>
 
       <div class="grid head">
-        <div>Task</div>
-        <div>Status</div>
-        <div>Comment</div>
+        <div>TASK</div>
+        <div>STATUS</div>
+        <div>TAGS</div>
+        <div>COMMENT</div>
       </div>
 
       <!-- Active tasks (draggable) -->
       <div class="draggable" data-date="{{ today }}">
         {% for idx, task in today_active %}
+        {% set scls = task['status']|replace(' ', '')|lower() %}
         <div class="grid row item" draggable="true" data-index="{{ idx }}">
           <div class="cell">{{ task['task'] }}</div>
 
-          <div class="cell">
+          <div class="cell status-cell">
+            <span class="status-dot {{ scls }}"></span>
             <form method="POST" action="{{ url_for('change_status', task_date=today, task_index=idx) }}">
               <select name="status" onchange="this.form.submit()">
                 {% for s in statuses %}
-                  <option value="{{ s }}" {% if task['status']==s %}selected{% endif %}>{{ s }}</option>
+                <option value="{{ s }}" {% if task['status']==s %}selected{% endif %}>{{ s }}</option>
                 {% endfor %}
               </select>
             </form>
           </div>
 
           <div class="cell">
+            <div class="tags-editor" data-date="{{ today }}" data-index="{{ idx }}">
+              <!-- current tags as pills (interactive) -->
+              <div class="tags-view">
+                {% set taglist=(task.get('tags','') or '').split(',') %}
+                {% for tag in taglist if tag.strip() %}
+                <button type="button" class="tag-pill tcolor-{{ loop.index0 % 6 }}" data-tag="{{ tag.strip() }}"
+                  data-n="{{ '%02d' % (loop.index) }}">
+                  {{ tag.strip() }}
+                  <span class="tag-x" aria-label="Remove">×</span>
+                </button>
+                {% endfor %}
+              </div>
+
+              <!-- hidden field holds the CSV that is saved -->
+              <form class="tags-form" method="POST"
+                action="{{ url_for('change_tags', task_date=today, task_index=idx) }}">
+                <input type="hidden" name="tags" value="{{ task.get('tags','') }}">
+                <input type="text" class="tags-input" placeholder="Add tag and press Enter">
+              </form>
+            </div>
+          </div>
+
+          <div class="cell">
             <form method="POST" action="{{ url_for('change_comment', task_date=today, task_index=idx) }}">
-              <input class="comment" type="text" name="comment"
-                     value="{{ task['comment'] }}" placeholder="Add a note…"
-                     onchange="this.form.submit()">
+              <input class="comment" type="text" name="comment" value="{{ task['comment'] }}" placeholder="Add a note…"
+                onchange="this.form.submit()">
             </form>
           </div>
         </div>
         {% endfor %}
       </div>
 
-      <!-- Completed group (still shows original indices) -->
+      <!-- Completed group -->
       {% if today_completed %}
       <h3 class="muted group-title">Completed</h3>
       <div class="draggable completed-group" data-date="{{ today }}">
         {% for idx, task in today_completed %}
+        {% set scls = task['status']|replace(' ', '')|lower() %}
         <div class="grid row item completed" draggable="true" data-index="{{ idx }}">
           <div class="cell completed">{{ task['task'] }}</div>
-          <div class="cell">{{ task['status'] }}</div>
+          <div class="cell status-cell">
+            <span class="status-dot {{ scls }}"></span>
+            <span class="status-badge status-{{ scls }}">{{ task['status'] }}</span>
+          </div>
+          <div class="cell">
+            <div class="tags-view">
+              {% set taglist=(task.get('tags','') or '').split(',') %}
+              {% for tag in taglist if tag.strip() %}
+              <span class="tag-pill tcolor-{{ loop.index0 % 6 }}" data-n="{{ '%02d' % (loop.index) }}">{{ tag.strip()
+                }}</span>
+              {% endfor %}
+            </div>
+          </div>
           <div class="cell">{{ task['comment'] }}</div>
         </div>
         {% endfor %}
@@ -75,7 +115,10 @@
       <!-- Add new -->
       <form class="add grid" method="POST" action="{{ url_for('add_task', task_date=today) }}">
         <input type="text" name="task" placeholder="New task…" required />
-        <select name="status" disabled><option selected>New</option></select>
+        <select name="status" disabled>
+          <option selected>New</option>
+        </select>
+        <input type="text" name="tags" placeholder="Tags (comma separated)" />
         <input type="text" name="comment" placeholder="Comment (optional)" />
         <button type="submit">Add</button>
       </form>
@@ -85,15 +128,28 @@
     <section class="card">
       <h2>Yesterday — {{ yesterday_display }}</h2>
       <div class="grid head">
-        <div>Task</div>
-        <div>Status</div>
-        <div>Comment</div>
+        <div>TASK</div>
+        <div>STATUS</div>
+        <div>TAGS</div>
+        <div>COMMENT</div>
       </div>
 
       {% for task in yesterday_active %}
+      {% set scls = task['status']|replace(' ', '')|lower() %}
       <div class="grid row">
         <div class="cell">{{ task['task'] }}</div>
-        <div class="cell">{{ task['status'] }}</div>
+        <div class="cell status-cell">
+          <span class="status-dot {{ scls }}"></span>
+          <span class="status-badge status-{{ scls }}">{{ task['status'] }}</span>
+        </div>
+        <div class="cell">
+          <div class="tags-view">
+            {% for tag in (task.get('tags','') or '').split(',') if tag.strip() %}
+            <span class="tag-pill tcolor-{{ loop.index0 % 6 }}" data-n="{{ '%02d' % (loop.index) }}">{{ tag.strip()
+              }}</span>
+            {% endfor %}
+          </div>
+        </div>
         <div class="cell">{{ task['comment'] }}</div>
       </div>
       {% endfor %}
@@ -101,16 +157,28 @@
       {% if yesterday_completed %}
       <h3 class="muted group-title">Completed</h3>
       {% for task in yesterday_completed %}
+      {% set scls = task['status']|replace(' ', '')|lower() %}
       <div class="grid row">
         <div class="cell completed">{{ task['task'] }}</div>
-        <div class="cell">{{ task['status'] }}</div>
+        <div class="cell status-cell">
+          <span class="status-dot {{ scls }}"></span>
+          <span class="status-badge status-{{ scls }}">{{ task['status'] }}</span>
+        </div>
+        <div class="cell">
+          <div class="tags-view">
+            {% for tag in (task.get('tags','') or '').split(',') if tag.strip() %}
+            <span class="tag-pill tcolor-{{ loop.index0 % 6 }}" data-n="{{ '%02d' % (loop.index) }}">{{ tag.strip()
+              }}</span>
+            {% endfor %}
+          </div>
+        </div>
         <div class="cell">{{ task['comment'] }}</div>
       </div>
       {% endfor %}
       {% endif %}
     </section>
 
-    <!-- ARCHIVES (collapsible, read-only) -->
+    <!-- ARCHIVES (read-only, collapsible) -->
     <section class="card">
       <h2>Archives</h2>
       <div class="accordion">
@@ -124,15 +192,28 @@
           </summary>
 
           <div class="grid head inner">
-            <div>Task</div>
-            <div>Status</div>
-            <div>Comment</div>
+            <div>TASK</div>
+            <div>STATUS</div>
+            <div>TAGS</div>
+            <div>COMMENT</div>
           </div>
 
           {% for t in a_active %}
+          {% set scls = t['status']|replace(' ', '')|lower() %}
           <div class="grid row inner">
             <div class="cell">{{ t['task'] }}</div>
-            <div class="cell">{{ t['status'] }}</div>
+            <div class="cell status-cell">
+              <span class="status-dot {{ scls }}"></span>
+              <span class="status-badge status-{{ scls }}">{{ t['status'] }}</span>
+            </div>
+            <div class="cell">
+              <div class="tags-view">
+                {% for tag in (t.get('tags','') or '').split(',') if tag.strip() %}
+                <span class="tag-pill tcolor-{{ loop.index0 % 6 }}" data-n="{{ '%02d' % (loop.index) }}">{{ tag.strip()
+                  }}</span>
+                {% endfor %}
+              </div>
+            </div>
             <div class="cell">{{ t['comment'] }}</div>
           </div>
           {% endfor %}
@@ -140,9 +221,21 @@
           {% if a_done %}
           <h4 class="muted group-title inner">Completed</h4>
           {% for t in a_done %}
+          {% set scls = t['status']|replace(' ', '')|lower() %}
           <div class="grid row inner">
             <div class="cell completed">{{ t['task'] }}</div>
-            <div class="cell">{{ t['status'] }}</div>
+            <div class="cell status-cell">
+              <span class="status-dot {{ scls }}"></span>
+              <span class="status-badge status-{{ scls }}">{{ t['status'] }}</span>
+            </div>
+            <div class="cell">
+              <div class="tags-view">
+                {% for tag in (t.get('tags','') or '').split(',') if tag.strip() %}
+                <span class="tag-pill tcolor-{{ loop.index0 % 6 }}" data-n="{{ '%02d' % (loop.index) }}">{{ tag.strip()
+                  }}</span>
+                {% endfor %}
+              </div>
+            </div>
             <div class="cell">{{ t['comment'] }}</div>
           </div>
           {% endfor %}
@@ -157,7 +250,7 @@
     </footer>
   </div>
 
-  <!-- Keep your existing static/app.js for drag-and-drop + theme toggle -->
   <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
+
 </html>

@@ -61,3 +61,68 @@
     }, {offset: Number.NEGATIVE_INFINITY}).element;
   }
 })();
+
+(function(){
+  const editors = document.querySelectorAll('.tags-editor');
+  if (!editors.length) return;
+
+  editors.forEach(ed => {
+    const input  = ed.querySelector('.tags-input');
+    const hidden = ed.querySelector('input[name="tags"]');
+    const form   = ed.querySelector('.tags-form');
+    const view   = ed.querySelector('.tags-view');
+
+    const COLORS = ['tcolor-0','tcolor-1','tcolor-2','tcolor-3','tcolor-4','tcolor-5'];
+
+    const getTags = () =>
+      (hidden.value || '')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+
+    const setTags = (arr) => {
+      hidden.value = arr.join(', ');
+      render();
+    };
+
+    const render = () => {
+      view.innerHTML = '';
+      const tags = getTags();
+      tags.forEach((tag, i) => {
+        const pill = document.createElement('button');
+        pill.type = 'button';
+        pill.className = `tag-pill ${COLORS[i % COLORS.length]}`;
+        pill.dataset.tag = tag;
+        pill.setAttribute('data-n', String(i + 1).padStart(2, '0'));
+        pill.innerHTML = `${tag} <span class="tag-x" aria-label="Remove">×</span>`;
+        view.appendChild(pill);
+      });
+    };
+
+    // Add tag on Enter or comma
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ',') {
+        e.preventDefault();
+        const t = input.value.trim().replace(/,$/, '');
+        if (!t) return;
+        const tags = getTags();
+        if (!tags.includes(t)) {
+          tags.push(t);
+          setTags(tags);
+          form.submit(); // persist to server
+        }
+        input.value = '';
+      }
+    });
+
+    // Remove tag when clicking a pill's ×
+    view.addEventListener('click', e => {
+      const pill = e.target.closest('.tag-pill');
+      if (!pill) return;
+      const t = pill.dataset.tag;
+      const tags = getTags().filter(x => x !== t);
+      setTags(tags);
+      form.submit(); // persist change
+    });
+  });
+})();
