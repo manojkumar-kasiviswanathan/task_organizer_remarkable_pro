@@ -234,3 +234,126 @@
     createOverlayPicker(display, iso);
   });
 })();
+/* ===== Allow clearing the deadline (click × or Backspace/Delete) ===== */
+(function(){
+  // Click the "×" button
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.due-clear');
+    if (!btn) return;
+    const chip = btn.closest('.due-chip');
+    if (!chip) return;
+    const display = chip.querySelector('.date-display');
+    const hiddenIso = chip.querySelector('input[type="hidden"][name="due"]');
+    if (hiddenIso) hiddenIso.value = '';
+    if (display) display.value = '';
+    // submit parent form
+    const form = chip.closest('form');
+    if (form) form.submit();
+  });
+
+  // Keyboard: Backspace/Delete on the display field clears
+  document.addEventListener('keydown', (e) => {
+    const display = e.target.closest('.date-display');
+    if (!display) return;
+    if (e.key === 'Backspace' || e.key === 'Delete') {
+      e.preventDefault();
+      const chip = display.closest('.due-chip');
+      const hiddenIso = chip && chip.querySelector('input[type="hidden"][name="due"]');
+      if (hiddenIso) hiddenIso.value = '';
+      display.value = '';
+      const form = chip && chip.closest('form');
+      if (form) form.submit();
+    }
+  });
+})();
+
+/* ===== Robust dd/mm/yyyy picker overlay (keep this; replaces openDatePicker) ===== */
+(function(){
+  function formatDMY(iso){ if(!iso) return ''; const [Y,M,D]=iso.split('-'); return `${D}/${M}/${Y}`; }
+
+  function createOverlayPicker(anchorInput, currentISO){
+    const r = anchorInput.getBoundingClientRect();
+    const picker = document.createElement('input');
+    picker.type = 'date';
+    picker.value = currentISO || '';
+    picker.setAttribute('aria-hidden','true');
+    Object.assign(picker.style, {
+      position: 'fixed', top: `${r.top}px`, left: `${r.left}px`,
+      width: `${r.width}px`, height: `${r.height}px`,
+      opacity: '0', zIndex: '9999', border: 'none', background: 'transparent'
+    });
+
+    picker.addEventListener('change', () => {
+      const chip = anchorInput.closest('.due-chip');
+      const hiddenIso = chip && chip.querySelector('input[type="hidden"][name="due"]');
+      if (picker.value && hiddenIso) {
+        anchorInput.value = formatDMY(picker.value);
+        hiddenIso.value = picker.value;
+        const form = chip.closest('form');
+        if (form) form.submit();
+      }
+      cleanup();
+    });
+    picker.addEventListener('blur', cleanup);
+
+    function cleanup(){ if (picker && picker.parentNode) picker.parentNode.removeChild(picker); }
+
+    document.body.appendChild(picker);
+    picker.focus({ preventScroll: true });
+    if (picker.showPicker) { try { picker.showPicker(); } catch{} }
+  }
+
+  // Delegate clicks to .date-display
+  document.addEventListener('click', (e) => {
+    const display = e.target.closest('.date-display');
+    if (!display) return;
+    const chip = display.closest('.due-chip');
+    const hiddenIso = chip && chip.querySelector('input[type="hidden"][name="due"]');
+    const iso = hiddenIso ? hiddenIso.value : '';
+    createOverlayPicker(display, iso);
+  });
+})();
+
+/* ===== Auto-expand Today comment textareas ===== */
+(function(){
+  function autoSize(el){
+    el.style.height = 'auto';
+    el.style.height = (el.scrollHeight + 2) + 'px';
+  }
+  function bind(el){
+    autoSize(el);
+    el.addEventListener('input', () => autoSize(el));
+    el.addEventListener('focus', () => autoSize(el));
+  }
+  document.querySelectorAll('textarea.comment-ta').forEach(bind);
+
+  // If your page updates via navigation/partial reloads, you can re-bind as needed.
+})();
+
+/* === Swap theme icon to match current theme & add shortcuts === */
+(function(){
+  const root = document.documentElement;
+  const btn  = document.getElementById('themeToggle');
+  const refresh = document.getElementById('refreshBtn');
+  if (!btn) return;
+
+  const darkIcon  = btn.dataset.iconDark  || '☀️';
+  const lightIcon = btn.dataset.iconLight || '🌙';
+
+  function applyIcon(){
+    const isDark = root.getAttribute('data-theme') === 'dark';
+    btn.textContent = isDark ? darkIcon : lightIcon;
+  }
+  // run once after your existing theme code sets data-theme
+  applyIcon();
+  // also whenever the button toggles
+  btn.addEventListener('click', () => setTimeout(applyIcon, 0));
+
+  // keyboard: r = refresh, t = toggle theme
+  document.addEventListener('keydown', (e) => {
+    if (e.target && /input|textarea|select/i.test(e.target.tagName)) return;
+    if (e.key.toLowerCase() === 'r' && refresh){ e.preventDefault(); refresh.click(); }
+    if (e.key.toLowerCase() === 't'){ e.preventDefault(); btn.click(); }
+  });
+})();
+

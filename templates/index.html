@@ -1,28 +1,41 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
-  
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Task Organizer</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='remarkable.css') }}?v=11">
 </head>
+
 <body data-today="{{ today }}" data-theme="light">
   <div id="bg-doodle"></div>
 
   <div id="page">
-    <header class="masthead">
-      <div class="masthead-row">
-        <div>
-          <h1>Task Organizer</h1>
-          <p class="subtitle">Simple · Local · Focused</p>
-        </div>
-        <div class="controls">
-          <button id="refreshBtn" title="Reload data">⟳ Refresh</button>
-          <button id="themeToggle" aria-label="Toggle theme">🌙</button>
-        </div>
+<header class="masthead sticky center-head">
+  <div class="masthead-row">
+    <!-- Left spacer -->
+    <div class="mast-left"></div>
+
+    <!-- Center brand -->
+    <div class="brand center">
+      <div class="logo" aria-hidden="true">☑️</div>
+      <div class="titles">
+        <h1>Task Organizer</h1>
+        <p class="subtitle">Local · Private · Fast</p>
       </div>
-    </header>
+    </div>
+
+    <!-- Tools right -->
+    <div class="mast-tools">
+      <button id="refreshBtn" class="icon-btn" title="Reload">↺</button>
+      <button id="themeToggle" class="icon-btn"
+              data-icon-light="🌙" data-icon-dark="☀️"
+              aria-label="Toggle theme">🌙</button>
+    </div>
+  </div>
+</header>
+
 
     <!-- TODAY -->
     <section class="card card-first">
@@ -49,8 +62,7 @@
           <div class="cell">
             <form method="POST" action="{{ url_for('change_task_name', task_date=today, task_index=idx) }}">
               <input type="text" name="task" value="{{ task['task'] }}" placeholder="Task title…"
-                     onkeydown="if(event.key==='Enter'){ this.form.submit(); return false; }"
-                     onchange="this.form.submit()">
+                onkeydown="if(event.key==='Enter'){ this.form.submit(); return false; }" onchange="this.form.submit()">
             </form>
           </div>
 
@@ -60,7 +72,7 @@
             <form method="POST" action="{{ url_for('change_status', task_date=today, task_index=idx) }}">
               <select name="status" onchange="this.form.submit()">
                 {% for s in statuses %}
-                  <option value="{{ s }}" {% if task['status']==s %}selected{% endif %}>{{ s }}</option>
+                <option value="{{ s }}" {% if task['status']==s %}selected{% endif %}>{{ s }}</option>
                 {% endfor %}
               </select>
             </form>
@@ -71,27 +83,28 @@
             <div class="tags-editor" data-date="{{ today }}" data-index="{{ idx }}">
               <div class="tags-view">
                 {% for tag in (task.get('tags','') or '').split(',') if tag.strip() %}
-                  <button type="button" class="tag-pill" data-tag="{{ tag.strip() }}" data-n="{{ '%02d' % (loop.index) }}">
-                    {{ tag.strip() }} <span class="tag-x" aria-label="Remove">×</span>
-                  </button>
+                <button type="button" class="tag-pill" data-tag="{{ tag.strip() }}"
+                  data-n="{{ '%02d' % (loop.index) }}">
+                  {{ tag.strip() }} <span class="tag-x" aria-label="Remove">×</span>
+                </button>
                 {% endfor %}
               </div>
-              <form class="tags-form" method="POST" action="{{ url_for('change_tags', task_date=today, task_index=idx) }}">
+              <form class="tags-form" method="POST"
+                action="{{ url_for('change_tags', task_date=today, task_index=idx) }}">
                 <input type="hidden" name="tags" value="{{ task.get('tags','') }}">
                 <button type="button" class="tag-add-btn">+</button>
               </form>
             </div>
           </div>
 
-          <!-- DEADLINE (custom dd/mm/yyyy display + hidden ISO) -->
+          <!-- DEADLINE (custom dd/mm/yyyy + clear) -->
           <div class="cell">
             <form method="POST" action="{{ url_for('change_due', task_date=today, task_index=idx) }}">
               <div class="due-chip {{ due_class }}">
-                <input type="text" class="date-display"
-                       value="{{ due and (due|fmt_date) or '' }}"
-                       placeholder="dd/mm/yyyy" readonly
-                       onclick="openDatePicker(this)">
+                <input type="text" class="date-display" value="{{ due and (due|fmt_date) or '' }}"
+                  placeholder="dd/mm/yyyy" readonly>
                 <input type="hidden" name="due" value="{{ due }}">
+                <button type="button" class="due-clear" title="Clear date">×</button>
               </div>
             </form>
           </div>
@@ -99,10 +112,9 @@
           <!-- COMMENT (Markdown editable) -->
           <div class="cell">
             <form method="POST" action="{{ url_for('change_comment', task_date=today, task_index=idx) }}">
-              <textarea class="comment-ta" name="comment" rows="2"
-                        placeholder="Add a note… (Markdown supported)"
-                        onkeydown="if(event.key==='Enter' && (event.metaKey||event.ctrlKey)){ this.form.submit(); return false; }"
-                        onchange="this.form.submit()">{{ task['comment'] }}</textarea>
+              <textarea class="comment-ta" name="comment" rows="2" placeholder="Add a note… (Markdown supported)"
+                onkeydown="if(event.key==='Enter' && (event.metaKey||event.ctrlKey)){ this.form.submit(); return false; }"
+                onchange="this.form.submit()">{{ task['comment'] }}</textarea>
             </form>
           </div>
         </div>
@@ -127,12 +139,15 @@
           <div class="cell">
             <div class="tags-view">
               {% for tag in (task.get('tags','') or '').split(',') if tag.strip() %}
-                <span class="tag-pill" data-tag="{{ tag.strip() }}" data-n="{{ '%02d' % (loop.index) }}">{{ tag.strip() }}</span>
+              <span class="tag-pill" data-tag="{{ tag.strip() }}" data-n="{{ '%02d' % (loop.index) }}">{{ tag.strip()
+                }}</span>
               {% endfor %}
             </div>
           </div>
           <div class="cell"><span class="due-chip {{ due_class }}">{{ due and (due|fmt_date) or '—' }}</span></div>
-          <div class="cell"><div class="md">{{ task['comment'] }}</div></div>
+          <div class="cell">
+            <div class="md">{{ task['comment'] }}</div>
+          </div>
         </div>
         {% endfor %}
       </div>
@@ -141,7 +156,9 @@
       <!-- Add new -->
       <form class="add grid five" method="POST" action="{{ url_for('add_task', task_date=today) }}">
         <input type="text" name="task" placeholder="New task…" required />
-        <select name="status" disabled><option selected>New</option></select>
+        <select name="status" disabled>
+          <option selected>New</option>
+        </select>
         <input type="hidden" name="tags" value="">
         <input type="date" name="due" />
         <input type="text" name="comment" placeholder="Comment (optional)" />
@@ -175,12 +192,15 @@
         <div class="cell">
           <div class="tags-view">
             {% for tag in (task.get('tags','') or '').split(',') if tag.strip() %}
-              <span class="tag-pill" data-tag="{{ tag.strip() }}" data-n="{{ '%02d' % (loop.index) }}">{{ tag.strip() }}</span>
+            <span class="tag-pill" data-tag="{{ tag.strip() }}" data-n="{{ '%02d' % (loop.index) }}">{{ tag.strip()
+              }}</span>
             {% endfor %}
           </div>
         </div>
         <div class="cell"><span class="due-chip {{ due_class }}">{{ due and (due|fmt_date) or '—' }}</span></div>
-        <div class="cell"><div class="md">{{ task['comment'] }}</div></div>
+        <div class="cell">
+          <div class="md">{{ task['comment'] }}</div>
+        </div>
       </div>
       {% endfor %}
 
@@ -201,12 +221,15 @@
         <div class="cell">
           <div class="tags-view">
             {% for tag in (task.get('tags','') or '').split(',') if tag.strip() %}
-              <span class="tag-pill" data-tag="{{ tag.strip() }}" data-n="{{ '%02d' % (loop.index) }}">{{ tag.strip() }}</span>
+            <span class="tag-pill" data-tag="{{ tag.strip() }}" data-n="{{ '%02d' % (loop.index) }}">{{ tag.strip()
+              }}</span>
             {% endfor %}
           </div>
         </div>
         <div class="cell"><span class="due-chip {{ due_class }}">{{ due and (due|fmt_date) or '—' }}</span></div>
-        <div class="cell"><div class="md">{{ task['comment'] }}</div></div>
+        <div class="cell">
+          <div class="md">{{ task['comment'] }}</div>
+        </div>
       </div>
       {% endfor %}
       {% endif %}
@@ -248,12 +271,15 @@
             <div class="cell">
               <div class="tags-view">
                 {% for tag in (t.get('tags','') or '').split(',') if tag.strip() %}
-                  <span class="tag-pill" data-tag="{{ tag.strip() }}" data-n="{{ '%02d' % (loop.index) }}">{{ tag.strip() }}</span>
+                <span class="tag-pill" data-tag="{{ tag.strip() }}" data-n="{{ '%02d' % (loop.index) }}">{{ tag.strip()
+                  }}</span>
                 {% endfor %}
               </div>
             </div>
             <div class="cell"><span class="due-chip {{ due_class }}">{{ due and (due|fmt_date) or '—' }}</span></div>
-            <div class="cell"><div class="md">{{ t['comment'] }}</div></div>
+            <div class="cell">
+              <div class="md">{{ t['comment'] }}</div>
+            </div>
           </div>
           {% endfor %}
 
@@ -274,12 +300,15 @@
             <div class="cell">
               <div class="tags-view">
                 {% for tag in (t.get('tags','') or '').split(',') if tag.strip() %}
-                  <span class="tag-pill" data-tag="{{ tag.strip() }}" data-n="{{ '%02d' % (loop.index) }}">{{ tag.strip() }}</span>
+                <span class="tag-pill" data-tag="{{ tag.strip() }}" data-n="{{ '%02d' % (loop.index) }}">{{ tag.strip()
+                  }}</span>
                 {% endfor %}
               </div>
             </div>
             <div class="cell"><span class="due-chip {{ due_class }}">{{ due and (due|fmt_date) or '—' }}</span></div>
-            <div class="cell"><div class="md">{{ t['comment'] }}</div></div>
+            <div class="cell">
+              <div class="md">{{ t['comment'] }}</div>
+            </div>
           </div>
           {% endfor %}
           {% endif %}
@@ -302,6 +331,7 @@
     </div>
   </div>
 
-  <script src="{{ url_for('static', filename='app.js') }}?v=12"></script>
+  <script src="{{ url_for('static', filename='app.js') }}?v=13"></script>
 </body>
+
 </html>

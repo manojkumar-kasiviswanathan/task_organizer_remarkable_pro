@@ -3,10 +3,18 @@
   --accent:#0a7ea4; --card:#ffffff; --shadow:0 1px 0 rgba(0,0,0,.02), 0 6px 16px rgba(0,0,0,.04);
   --doodle-opacity:.08;
 }
-:root[data-theme="dark"], html[data-theme="dark"]{
-  --paper:#111214; --ink:#efefef; --muted:#9a9a9a; --stroke:#2b2d30;
-  --accent:#56b3d6; --card:#1a1b1e; --shadow:none; --doodle-opacity:.05;
+:root[data-theme="dark"],
+html[data-theme="dark"] {
+  --paper: #303136;         /* deep charcoal background */
+  --ink: #f5f5f7;           /* softer white text */
+  --muted: #a1a1a8;         /* lighter gray for subtext */
+  --stroke: #d3d6e2;        /* slightly lighter than paper for borders */
+  --accent: #4db2ff;        /* brighter blue accent */
+  --card: #2e3038;          /* elevated dark surface */
+  --shadow: 0 1px 2px rgba(0,0,0,0.5), 0 6px 20px rgba(0,0,0,0.3); /* subtle depth */
+  --doodle-opacity: 0.04;   /* keep doodle faint in dark mode */
 }
+
 
 /* base */
 *{box-sizing:border-box;}
@@ -120,3 +128,77 @@ select:focus, input[type=text]:focus, textarea:focus, input[type=date]:focus{
 
 /* responsive */
 @media (max-width: 980px){ .grid.five{ grid-template-columns:1fr; } .head .th{ text-align:left; } }
+
+/* Clear-date button inside the deadline chip */
+.due-chip{
+  position: relative; display: flex; align-items: center; gap: 8px;
+  padding: 2px; border-radius: 10px;
+}
+.due-clear{
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  width: 22px; height: 22px; border-radius: 999px; border: 1px solid var(--stroke);
+  background: var(--card); color: var(--muted); cursor: pointer; line-height: 20px;
+  display: grid; place-items: center; font-weight: 700; padding: 0;
+}
+.due-clear:hover{ color: var(--ink); border-color: var(--accent); }
+
+/* make the display input leave room for the clear button */
+.due-chip .date-display{ padding-right: 34px; }
+
+/* Comments: auto-expand (no inner scrollbar) */
+textarea.comment-ta{ overflow: hidden; }  /* lets height grow with JS */
+
+/* Sticky, glassy masthead */
+.masthead.sticky{
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: saturate(140%) blur(8px);
+  background: color-mix(in srgb, var(--paper) 75%, transparent);
+  border-bottom: 1px solid var(--stroke);
+}
+
+/* Layout */
+.brand{ display:flex; align-items:center; gap:12px; }
+.logo{
+  width:40px; height:40px; border-radius:10px;
+  display:grid; place-items:center;
+  background: color-mix(in srgb, var(--accent) 14%, var(--card));
+  box-shadow: var(--shadow);
+  font-size:18px;
+}
+.titles h1{ margin:0 0 2px 0; line-height:1.1; font-weight:800; letter-spacing:.2px; }
+.titles .subtitle{ margin:0; color:var(--muted); font-size:14px; }
+
+/* Right side tools */
+.mast-tools{ display:flex; align-items:center; gap:12px; }
+.date-chip{
+  padding:6px 10px; border:1px solid var(--stroke);
+  background: color-mix(in srgb, var(--card) 85%, transparent);
+  border-radius:999px; font-size:12px; font-weight:600; color:var(--ink);
+}
+.sep{
+  width:1px; height:26px; background: var(--stroke); display:inline-block;
+}
+
+/* Icon buttons */
+.icon-btn{
+  border:1px solid var(--stroke);
+  background: var(--card);
+  color: var(--ink);
+  border-radius:10px;
+  padding:8px 12px;
+  cursor:pointer;
+  transition: transform .08s ease, border-color .15s ease;
+}
+.icon-btn:hover{ border-color: var(--accent); transform: translateY(-1px); }
+.icon-btn:active{ transform: translateY(0); }
+
+/* Dark-mode tweaks for the glass header (optional) */
+:root[data-theme="dark"] .masthead.sticky{
+  background: color-mix(in srgb, var(--paper) 70%, transparent);
+}
+:root[data-theme="dark"] .logo{
+  background: color-mix(in srgb, var(--accent) 18%, var(--card));
+}
+
