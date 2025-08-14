@@ -1,4 +1,4 @@
-/* ========= Theme toggle ========= */
+/* ===== Theme toggle ===== */
 (function(){
   const btn = document.getElementById('themeToggle');
   if (!btn) return;
@@ -13,15 +13,15 @@
   });
 })();
 
-/* ========= Manual refresh ========= */
+/* ===== Manual refresh ===== */
 (function(){
   const b = document.getElementById('refreshBtn');
   if (b) b.addEventListener('click', () => window.location.reload());
 })();
 
-/* ========= Auto-refresh when date changes ========= */
+/* ===== Auto-refresh when date changes ===== */
 (function(){
-  const renderedIso = document.body.dataset.today; // YYYY-MM-DD from server
+  const renderedIso = document.body.dataset.today;
   function todayIso(){
     const d=new Date(), y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0');
     return `${y}-${m}-${dd}`;
@@ -32,7 +32,7 @@
   setInterval(maybeReload, 5*60*1000);
 })();
 
-/* ========= Drag & Drop (TODAY only) ========= */
+/* ===== Drag & Drop (Today only) ===== */
 (function(){
   const containers = document.querySelectorAll('.draggable');
   if (!containers.length) return;
@@ -77,24 +77,19 @@
   }
 })();
 
-/* ========= Deterministic tag colors (same tag => same color) ========= */
+/* ===== Deterministic tag colors (same tag -> same color) ===== */
 (function(){
   const PALETTE = ['tcolor-0','tcolor-1','tcolor-2','tcolor-3','tcolor-4','tcolor-5'];
-  const hash = (s) => {
-    let h = 2166136261 >>> 0;
-    for (let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
-    return h >>> 0;
-  };
+  const hash = (s) => { let h=2166136261>>>0; for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619);} return h>>>0; };
   document.querySelectorAll('.tag-pill').forEach(pill => {
     const tag = (pill.dataset.tag || pill.textContent || '').trim().toLowerCase();
     const idx = tag ? hash(tag) % PALETTE.length : 0;
-    // remove any previous tcolor-* then add the deterministic one
     pill.classList.remove(...PALETTE);
     pill.classList.add(PALETTE[idx]);
   });
 })();
 
-/* ========= Tags: + Tag modal, add/remove chips ========= */
+/* ===== Tags: + Tag modal ===== */
 (function(){
   const modal = document.getElementById('tagModal');
   if (!modal) return;
@@ -129,7 +124,7 @@
     closeModal();
   }
 
-  // Open via "+ Tag" (delegation)
+  // open modal
   document.addEventListener('click', e => {
     const addBtn = e.target.closest('.tag-add-btn');
     if (addBtn) {
@@ -139,7 +134,7 @@
     }
   });
 
-  // Remove tag via × on a pill (delegation)
+  // remove tag
   document.addEventListener('click', e => {
     const pill = e.target.closest('.tag-pill');
     if (!pill || !pill.querySelector('.tag-x')) return;
@@ -161,24 +156,81 @@
   });
 })();
 
-/* ========= Tiny Markdown renderer (read-only .md blocks) ========= */
+/* ===== Markdown renderer (read-only .md blocks) ===== */
 (function(){
   function esc(s){ return String(s||'').replace(/[&<>"]/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-  function inline(s){
-    s = esc(s).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
-              .replace(/(^|[^*])\*(.+?)\*/g,'$1<em>$2</em>');
-    return s;
-  }
+  function inline(s){ s = esc(s).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/(^|[^*])\*(.+?)\*/g,'$1<em>$2</em>'); return s; }
   function render(src){
     const lines = String(src||'').split(/\r?\n/); let html='', i=0;
     while(i<lines.length){
-      if (/^\s*\d+\.\s+/.test(lines[i])){ html+='<ol>'; 
-        while(i<lines.length && /^\s*\d+\.\s+/.test(lines[i])) html+=`<li>${inline(lines[i++].replace(/^\s*\d+\.\s+/,''))}</li>`; html+='</ol>'; continue; }
-      if (/^\s*[-*]\s+/.test(lines[i])){ html+='<ul>'; 
-        while(i<lines.length && /^\s*[-*]\s+/.test(lines[i])) html+=`<li>${inline(lines[i++].replace(/^\s*[-*]\s+/,''))}</li>`; html+='</ul>'; continue; }
+      if (/^\s*\d+\.\s+/.test(lines[i])){ html+='<ol>'; while(i<lines.length && /^\s*\d+\.\s+/.test(lines[i])) html+=`<li>${inline(lines[i++].replace(/^\s*\d+\.\s+/,''))}</li>`; html+='</ol>'; continue; }
+      if (/^\s*[-*]\s+/.test(lines[i])){ html+='<ul>'; while(i<lines.length && /^\s*[-*]\s+/.test(lines[i])) html+=`<li>${inline(lines[i++].replace(/^\s*[-*]\s+/,''))}</li>`; html+='</ul>'; continue; }
       const l = lines[i++]; html += (l.trim()==='') ? '<p></p>' : `<p>${inline(l)}</p>`;
     }
     return html;
   }
   document.querySelectorAll('.md').forEach(el => { el.innerHTML = render(el.textContent); });
+})();
+
+/* ===== Robust dd/mm/yyyy picker overlay for Today ===== */
+(function(){
+  function formatDMY(iso){ if(!iso) return ''; const [Y,M,D]=iso.split('-'); return `${D}/${M}/${Y}`; }
+
+  function createOverlayPicker(anchorInput, currentISO){
+    const r = anchorInput.getBoundingClientRect();
+
+    const picker = document.createElement('input');
+    picker.type = 'date';
+    picker.value = currentISO || '';
+    picker.setAttribute('aria-hidden','true');
+
+    // position exactly over the visible field
+    Object.assign(picker.style, {
+      position: 'fixed',
+      top: `${r.top}px`,
+      left: `${r.left}px`,
+      width: `${r.width}px`,
+      height: `${r.height}px`,
+      opacity: '0',               // fully transparent but clickable/focusable
+      zIndex: '9999',
+      border: 'none',
+      background: 'transparent'
+    });
+
+    // when a date is picked -> write back & submit
+    picker.addEventListener('change', () => {
+      const hiddenIso = anchorInput.parentElement.querySelector('input[type="hidden"][name="due"]');
+      if (picker.value && hiddenIso) {
+        anchorInput.value = formatDMY(picker.value);
+        hiddenIso.value = picker.value;
+        if (anchorInput.form) anchorInput.form.submit();
+      }
+      cleanup();
+    });
+
+    // if user taps away, just remove it
+    picker.addEventListener('blur', cleanup);
+
+    function cleanup(){
+      if (picker && picker.parentNode) picker.parentNode.removeChild(picker);
+    }
+
+    document.body.appendChild(picker);
+    // focus and try to open the native UI
+    picker.focus({ preventScroll: true });
+    if (picker.showPicker) {
+      try { picker.showPicker(); } catch {}
+    }
+  }
+
+  // Delegate clicks to any .date-display (works after DOM changes)
+  document.addEventListener('click', (e) => {
+    const display = e.target.closest('.date-display');
+    if (!display) return;
+
+    // find current ISO hidden field next to it
+    const hiddenIso = display.parentElement.querySelector('input[type="hidden"][name="due"]');
+    const iso = hiddenIso ? hiddenIso.value : '';
+    createOverlayPicker(display, iso);
+  });
 })();

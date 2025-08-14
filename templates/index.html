@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
+  
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Task Organizer</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='remarkable.css') }}?v=10">
+  <link rel="stylesheet" href="{{ url_for('static', filename='remarkable.css') }}?v=11">
 </head>
 <body data-today="{{ today }}" data-theme="light">
   <div id="bg-doodle"></div>
@@ -35,7 +36,6 @@
         <div class="th">COMMENT</div>
       </div>
 
-      <!-- Active list (editable, draggable) -->
       <div class="draggable" data-date="{{ today }}">
         {% for idx, task in today_active %}
         {% set scls = task['status']|replace(' ', '')|lower() %}
@@ -43,14 +43,12 @@
         {% set due_class = 'due-none' %}
         {% if due == iso_yesterday %}{% set due_class = 'due-warn' %}{% endif %}
         {% if due == iso_today %}{% set due_class = 'due-danger' %}{% endif %}
+
         <div class="grid row item five" draggable="true" data-index="{{ idx }}">
           <!-- TASK -->
           <div class="cell">
             <form method="POST" action="{{ url_for('change_task_name', task_date=today, task_index=idx) }}">
-              <input type="text"
-                     name="task"
-                     value="{{ task['task'] }}"
-                     placeholder="Task title…"
+              <input type="text" name="task" value="{{ task['task'] }}" placeholder="Task title…"
                      onkeydown="if(event.key==='Enter'){ this.form.submit(); return false; }"
                      onchange="this.form.submit()">
             </form>
@@ -68,16 +66,12 @@
             </form>
           </div>
 
-          <!-- TAGS (chips + +Tag) -->
+          <!-- TAGS -->
           <div class="cell">
             <div class="tags-editor" data-date="{{ today }}" data-index="{{ idx }}">
               <div class="tags-view">
-                {% set taglist=(task.get('tags','') or '').split(',') %}
-                {% for tag in taglist if tag.strip() %}
-                  <button type="button"
-                          class="tag-pill"
-                          data-tag="{{ tag.strip() }}"
-                          data-n="{{ '%02d' % (loop.index) }}">
+                {% for tag in (task.get('tags','') or '').split(',') if tag.strip() %}
+                  <button type="button" class="tag-pill" data-tag="{{ tag.strip() }}" data-n="{{ '%02d' % (loop.index) }}">
                     {{ tag.strip() }} <span class="tag-x" aria-label="Remove">×</span>
                   </button>
                 {% endfor %}
@@ -89,16 +83,20 @@
             </div>
           </div>
 
-          <!-- DEADLINE (editable) -->
+          <!-- DEADLINE (custom dd/mm/yyyy display + hidden ISO) -->
           <div class="cell">
             <form method="POST" action="{{ url_for('change_due', task_date=today, task_index=idx) }}">
               <div class="due-chip {{ due_class }}">
-                <input type="date" name="due" value="{{ due }}" onchange="this.form.submit()">
+                <input type="text" class="date-display"
+                       value="{{ due and (due|fmt_date) or '' }}"
+                       placeholder="dd/mm/yyyy" readonly
+                       onclick="openDatePicker(this)">
+                <input type="hidden" name="due" value="{{ due }}">
               </div>
             </form>
           </div>
 
-          <!-- COMMENT (Markdown textarea; save on blur or Cmd/Ctrl+Enter) -->
+          <!-- COMMENT (Markdown editable) -->
           <div class="cell">
             <form method="POST" action="{{ url_for('change_comment', task_date=today, task_index=idx) }}">
               <textarea class="comment-ta" name="comment" rows="2"
@@ -111,7 +109,6 @@
         {% endfor %}
       </div>
 
-      <!-- Completed (read-only) -->
       {% if today_completed %}
       <h3 class="muted group-title">Completed</h3>
       <div class="draggable completed-group" data-date="{{ today }}">
@@ -134,14 +131,14 @@
               {% endfor %}
             </div>
           </div>
-          <div class="cell"><span class="due-chip {{ due_class }}">{{ due or '—' }}</span></div>
+          <div class="cell"><span class="due-chip {{ due_class }}">{{ due and (due|fmt_date) or '—' }}</span></div>
           <div class="cell"><div class="md">{{ task['comment'] }}</div></div>
         </div>
         {% endfor %}
       </div>
       {% endif %}
 
-      <!-- Add new row -->
+      <!-- Add new -->
       <form class="add grid five" method="POST" action="{{ url_for('add_task', task_date=today) }}">
         <input type="text" name="task" placeholder="New task…" required />
         <select name="status" disabled><option selected>New</option></select>
@@ -182,7 +179,7 @@
             {% endfor %}
           </div>
         </div>
-        <div class="cell"><span class="due-chip {{ due_class }}">{{ due or '—' }}</span></div>
+        <div class="cell"><span class="due-chip {{ due_class }}">{{ due and (due|fmt_date) or '—' }}</span></div>
         <div class="cell"><div class="md">{{ task['comment'] }}</div></div>
       </div>
       {% endfor %}
@@ -208,7 +205,7 @@
             {% endfor %}
           </div>
         </div>
-        <div class="cell"><span class="due-chip {{ due_class }}">{{ due or '—' }}</span></div>
+        <div class="cell"><span class="due-chip {{ due_class }}">{{ due and (due|fmt_date) or '—' }}</span></div>
         <div class="cell"><div class="md">{{ task['comment'] }}</div></div>
       </div>
       {% endfor %}
@@ -255,7 +252,7 @@
                 {% endfor %}
               </div>
             </div>
-            <div class="cell"><span class="due-chip {{ due_class }}">{{ due or '—' }}</span></div>
+            <div class="cell"><span class="due-chip {{ due_class }}">{{ due and (due|fmt_date) or '—' }}</span></div>
             <div class="cell"><div class="md">{{ t['comment'] }}</div></div>
           </div>
           {% endfor %}
@@ -281,7 +278,7 @@
                 {% endfor %}
               </div>
             </div>
-            <div class="cell"><span class="due-chip {{ due_class }}">{{ due or '—' }}</span></div>
+            <div class="cell"><span class="due-chip {{ due_class }}">{{ due and (due|fmt_date) or '—' }}</span></div>
             <div class="cell"><div class="md">{{ t['comment'] }}</div></div>
           </div>
           {% endfor %}
@@ -290,10 +287,6 @@
         {% endfor %}
       </div>
     </section>
-
-    <footer class="footer">
-      <p>All data stored locally in <code>tasks.json</code></p>
-    </footer>
   </div>
 
   <!-- Tag Modal -->
@@ -309,6 +302,6 @@
     </div>
   </div>
 
-  <script src="{{ url_for('static', filename='app.js') }}?v=10"></script>
+  <script src="{{ url_for('static', filename='app.js') }}?v=12"></script>
 </body>
 </html>

@@ -4,12 +4,11 @@ import os, json
 
 app = Flask(__name__)
 
-# ----- Config -----
 DATA_FILE = "tasks.json"
 STATUSES = ["New", "In Progress", "Blocked", "Complete"]
 
 
-# ----- Storage helpers -----
+# ---------- storage ----------
 def load_tasks():
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, "r") as f:
@@ -19,13 +18,24 @@ def load_tasks():
                 return {}
     return {}
 
-
 def save_tasks(tasks):
     with open(DATA_FILE, "w") as f:
         json.dump(tasks, f, indent=2)
 
 
-# ----- Daily rollover (move unfinished from yesterday to today) -----
+# ---------- template filters ----------
+@app.template_filter("fmt_date")
+def fmt_date(value: str) -> str:
+    """Render ISO 'YYYY-MM-DD' as 'DD/MM/YYYY'."""
+    if not value:
+        return ""
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").strftime("%d/%m/%Y")
+    except ValueError:
+        return value
+
+
+# ---------- rollover (yesterday -> today) ----------
 def rollover_tasks():
     tasks = load_tasks()
     today = date.today().isoformat()
@@ -45,29 +55,24 @@ def rollover_tasks():
                     "status": t.get("status") if t.get("status") != "Complete" else "New",
                     "due": t.get("due", ""),
                 })
-
     tasks.setdefault(today, [])
     save_tasks(tasks)
 
 
-# ----- Split helpers -----
+# ---------- helpers for grouping ----------
 def split_by_status(task_list):
     active = [t for t in task_list if t.get("status") != "Complete"]
     completed = [t for t in task_list if t.get("status") == "Complete"]
     return active, completed
 
-
 def split_by_status_indexed(task_list):
     active, completed = [], []
     for i, t in enumerate(task_list):
-        if t.get("status") == "Complete":
-            completed.append((i, t))
-        else:
-            active.append((i, t))
+        (completed if t.get("status") == "Complete" else active).append((i, t))
     return active, completed
 
 
-# ----- Routes -----
+# ---------- routes ----------
 @app.route("/")
 def index():
     rollover_tasks()
@@ -77,15 +82,12 @@ def index():
     yday_dt = date.today() - timedelta(days=1)
     yday_key = yday_dt.isoformat()
 
-    # Display format: Day (DD/MM/YYYY)
     today_display = f"{date.today():%A} ({date.today():%d/%m/%Y})"
     yesterday_display = f"{yday_dt:%A} ({yday_dt:%d/%m/%Y})"
 
     archives = {d: t for d, t in sorted(tasks.items()) if d not in (today_key, yday_key)}
 
-    # Today uses indexed tuples (idx, task)
     today_active, today_completed = split_by_status_indexed(tasks.get(today_key, []))
-    # Yesterday remains read-only
     y_active, y_completed = split_by_status(tasks.get(yday_key, []))
 
     return render_template(
@@ -93,8 +95,8 @@ def index():
         today=today_key,
         today_display=today_display,
         yesterday_display=yesterday_display,
-        today_active=today_active,          # list[(idx, task)]
-        today_completed=today_completed,    # list[(idx, task)]
+        today_active=today_active,
+        today_completed=today_completed,
         yesterday_active=y_active,
         yesterday_completed=y_completed,
         archives=archives,
@@ -113,7 +115,7 @@ def add_task(task_date):
         "comment": request.form.get("comment", ""),
         "tags": request.form.get("tags", ""),
         "status": "New",
-        "due": request.form.get("due", ""),  # ISO YYYY-MM-DD or ""
+        "due": request.form.get("due", ""),
     })
     save_tasks(tasks)
     return redirect(url_for("index"))
@@ -151,8 +153,7 @@ def change_due(task_date, task_index):
     """Update ISO date YYYY-MM-DD for deadline."""
     tasks = load_tasks()
     if task_date in tasks and 0 <= task_index < len(tasks[task_date]):
-        raw = request.form.get("due", "").strip()
-        # validate simple ISO or empty
+        raw = (request.form.get("due") or "").strip()
         if raw:
             try:
                 datetime.strptime(raw, "%Y-%m-%d")
@@ -190,6 +191,7 @@ def change_task_name(task_date, task_index):
         tasks[task_date][task_index]["task"] = request.form.get("task", "").strip()
         save_tasks(tasks)
     return redirect(url_for("index"))
+
 
 if __name__ == "__main__":
     app.run(debug=True)
