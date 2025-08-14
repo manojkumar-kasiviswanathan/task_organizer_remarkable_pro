@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 import os, json
 
 app = Flask(__name__)
@@ -43,6 +43,7 @@ def rollover_tasks():
                     "comment": t.get("comment", ""),
                     "tags": t.get("tags", ""),
                     "status": t.get("status") if t.get("status") != "Complete" else "New",
+                    "due": t.get("due", ""),
                 })
 
     tasks.setdefault(today, [])
@@ -51,17 +52,12 @@ def rollover_tasks():
 
 # ----- Split helpers -----
 def split_by_status(task_list):
-    """For read-only sections (Yesterday/Archives)."""
     active = [t for t in task_list if t.get("status") != "Complete"]
     completed = [t for t in task_list if t.get("status") == "Complete"]
     return active, completed
 
 
 def split_by_status_indexed(task_list):
-    """
-    For Today: return (active, completed) as lists of (orig_index, task) tuples.
-    Using original indices prevents 'wrong row changes' when groups are re-ordered.
-    """
     active, completed = [], []
     for i, t in enumerate(task_list):
         if t.get("status") == "Complete":
@@ -78,11 +74,12 @@ def index():
     tasks = load_tasks()
 
     today_key = date.today().isoformat()
-    yday_key = (date.today() - timedelta(days=1)).isoformat()
+    yday_dt = date.today() - timedelta(days=1)
+    yday_key = yday_dt.isoformat()
 
     # Display format: Day (DD/MM/YYYY)
     today_display = f"{date.today():%A} ({date.today():%d/%m/%Y})"
-    yesterday_display = f"{(date.today() - timedelta(days=1)):%A} ({(date.today() - timedelta(days=1)):%d/%m/%Y})"
+    yesterday_display = f"{yday_dt:%A} ({yday_dt:%d/%m/%Y})"
 
     archives = {d: t for d, t in sorted(tasks.items()) if d not in (today_key, yday_key)}
 
@@ -102,6 +99,8 @@ def index():
         yesterday_completed=y_completed,
         archives=archives,
         statuses=STATUSES,
+        iso_today=today_key,
+        iso_yesterday=yday_key,
     )
 
 
@@ -114,6 +113,7 @@ def add_task(task_date):
         "comment": request.form.get("comment", ""),
         "tags": request.form.get("tags", ""),
         "status": "New",
+        "due": request.form.get("due", ""),  # ISO YYYY-MM-DD or ""
     })
     save_tasks(tasks)
     return redirect(url_for("index"))
@@ -139,7 +139,6 @@ def change_comment(task_date, task_index):
 
 @app.route("/tags/<task_date>/<int:task_index>", methods=["POST"])
 def change_tags(task_date, task_index):
-    """Update comma-separated tags for a task."""
     tasks = load_tasks()
     if task_date in tasks and 0 <= task_index < len(tasks[task_date]):
         tasks[task_date][task_index]["tags"] = request.form.get("tags", "")
@@ -147,12 +146,25 @@ def change_tags(task_date, task_index):
     return redirect(url_for("index"))
 
 
+@app.route("/due/<task_date>/<int:task_index>", methods=["POST"])
+def change_due(task_date, task_index):
+    """Update ISO date YYYY-MM-DD for deadline."""
+    tasks = load_tasks()
+    if task_date in tasks and 0 <= task_index < len(tasks[task_date]):
+        raw = request.form.get("due", "").strip()
+        # validate simple ISO or empty
+        if raw:
+            try:
+                datetime.strptime(raw, "%Y-%m-%d")
+            except ValueError:
+                raw = ""
+        tasks[task_date][task_index]["due"] = raw
+        save_tasks(tasks)
+    return redirect(url_for("index"))
+
+
 @app.route("/reorder/<task_date>", methods=["POST"])
 def reorder(task_date):
-    """
-    Persist drag-and-drop order for a date.
-    Client posts the new order as a list of ORIGINAL indices (from data-index attrs).
-    """
     tasks = load_tasks()
     if task_date not in tasks:
         return jsonify({"ok": False, "error": "date not found"}), 404
@@ -170,6 +182,14 @@ def reorder(task_date):
     save_tasks(tasks)
     return jsonify({"ok": True})
 
+
+@app.route("/task/<task_date>/<int:task_index>", methods=["POST"])
+def change_task_name(task_date, task_index):
+    tasks = load_tasks()
+    if task_date in tasks and 0 <= task_index < len(tasks[task_date]):
+        tasks[task_date][task_index]["task"] = request.form.get("task", "").strip()
+        save_tasks(tasks)
+    return redirect(url_for("index"))
 
 if __name__ == "__main__":
     app.run(debug=True)

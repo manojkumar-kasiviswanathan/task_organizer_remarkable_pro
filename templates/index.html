@@ -1,15 +1,14 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
-
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Task Organizer</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='remarkable.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='remarkable.css') }}?v=10">
 </head>
-
-<body>
+<body data-today="{{ today }}" data-theme="light">
   <div id="bg-doodle"></div>
+
   <div id="page">
     <header class="masthead">
       <div class="masthead-row">
@@ -18,80 +17,111 @@
           <p class="subtitle">Simple · Local · Focused</p>
         </div>
         <div class="controls">
+          <button id="refreshBtn" title="Reload data">⟳ Refresh</button>
           <button id="themeToggle" aria-label="Toggle theme">🌙</button>
         </div>
       </div>
     </header>
 
-    <!-- TODAY (draggable) -->
-    <section class="card">
+    <!-- TODAY -->
+    <section class="card card-first">
       <h2>Today — {{ today_display }}</h2>
 
-      <div class="grid head">
-        <div>TASK</div>
-        <div>STATUS</div>
-        <div>TAGS</div>
-        <div>COMMENT</div>
+      <div class="grid head five">
+        <div class="th">TASK</div>
+        <div class="th">STATUS</div>
+        <div class="th">TAGS</div>
+        <div class="th">DEADLINE</div>
+        <div class="th">COMMENT</div>
       </div>
 
-      <!-- Active tasks (draggable) -->
+      <!-- Active list (editable, draggable) -->
       <div class="draggable" data-date="{{ today }}">
         {% for idx, task in today_active %}
         {% set scls = task['status']|replace(' ', '')|lower() %}
-        <div class="grid row item" draggable="true" data-index="{{ idx }}">
-          <div class="cell">{{ task['task'] }}</div>
+        {% set due = task.get('due','') %}
+        {% set due_class = 'due-none' %}
+        {% if due == iso_yesterday %}{% set due_class = 'due-warn' %}{% endif %}
+        {% if due == iso_today %}{% set due_class = 'due-danger' %}{% endif %}
+        <div class="grid row item five" draggable="true" data-index="{{ idx }}">
+          <!-- TASK -->
+          <div class="cell">
+            <form method="POST" action="{{ url_for('change_task_name', task_date=today, task_index=idx) }}">
+              <input type="text"
+                     name="task"
+                     value="{{ task['task'] }}"
+                     placeholder="Task title…"
+                     onkeydown="if(event.key==='Enter'){ this.form.submit(); return false; }"
+                     onchange="this.form.submit()">
+            </form>
+          </div>
 
+          <!-- STATUS -->
           <div class="cell status-cell">
             <span class="status-dot {{ scls }}"></span>
             <form method="POST" action="{{ url_for('change_status', task_date=today, task_index=idx) }}">
               <select name="status" onchange="this.form.submit()">
                 {% for s in statuses %}
-                <option value="{{ s }}" {% if task['status']==s %}selected{% endif %}>{{ s }}</option>
+                  <option value="{{ s }}" {% if task['status']==s %}selected{% endif %}>{{ s }}</option>
                 {% endfor %}
               </select>
             </form>
           </div>
 
+          <!-- TAGS (chips + +Tag) -->
           <div class="cell">
             <div class="tags-editor" data-date="{{ today }}" data-index="{{ idx }}">
-              <!-- current tags as pills (interactive) -->
               <div class="tags-view">
                 {% set taglist=(task.get('tags','') or '').split(',') %}
                 {% for tag in taglist if tag.strip() %}
-                <button type="button" class="tag-pill tcolor-{{ loop.index0 % 6 }}" data-tag="{{ tag.strip() }}"
-                  data-n="{{ '%02d' % (loop.index) }}">
-                  {{ tag.strip() }}
-                  <span class="tag-x" aria-label="Remove">×</span>
-                </button>
+                  <button type="button"
+                          class="tag-pill"
+                          data-tag="{{ tag.strip() }}"
+                          data-n="{{ '%02d' % (loop.index) }}">
+                    {{ tag.strip() }} <span class="tag-x" aria-label="Remove">×</span>
+                  </button>
                 {% endfor %}
               </div>
-
-              <!-- hidden field holds the CSV that is saved -->
-              <form class="tags-form" method="POST"
-                action="{{ url_for('change_tags', task_date=today, task_index=idx) }}">
+              <form class="tags-form" method="POST" action="{{ url_for('change_tags', task_date=today, task_index=idx) }}">
                 <input type="hidden" name="tags" value="{{ task.get('tags','') }}">
-                <input type="text" class="tags-input" placeholder="Add tag and press Enter">
+                <button type="button" class="tag-add-btn">+</button>
               </form>
             </div>
           </div>
 
+          <!-- DEADLINE (editable) -->
+          <div class="cell">
+            <form method="POST" action="{{ url_for('change_due', task_date=today, task_index=idx) }}">
+              <div class="due-chip {{ due_class }}">
+                <input type="date" name="due" value="{{ due }}" onchange="this.form.submit()">
+              </div>
+            </form>
+          </div>
+
+          <!-- COMMENT (Markdown textarea; save on blur or Cmd/Ctrl+Enter) -->
           <div class="cell">
             <form method="POST" action="{{ url_for('change_comment', task_date=today, task_index=idx) }}">
-              <input class="comment" type="text" name="comment" value="{{ task['comment'] }}" placeholder="Add a note…"
-                onchange="this.form.submit()">
+              <textarea class="comment-ta" name="comment" rows="2"
+                        placeholder="Add a note… (Markdown supported)"
+                        onkeydown="if(event.key==='Enter' && (event.metaKey||event.ctrlKey)){ this.form.submit(); return false; }"
+                        onchange="this.form.submit()">{{ task['comment'] }}</textarea>
             </form>
           </div>
         </div>
         {% endfor %}
       </div>
 
-      <!-- Completed group -->
+      <!-- Completed (read-only) -->
       {% if today_completed %}
       <h3 class="muted group-title">Completed</h3>
       <div class="draggable completed-group" data-date="{{ today }}">
         {% for idx, task in today_completed %}
         {% set scls = task['status']|replace(' ', '')|lower() %}
-        <div class="grid row item completed" draggable="true" data-index="{{ idx }}">
+        {% set due = task.get('due','') %}
+        {% set due_class = 'due-none' %}
+        {% if due == iso_yesterday %}{% set due_class = 'due-warn' %}{% endif %}
+        {% if due == iso_today %}{% set due_class = 'due-danger' %}{% endif %}
+        <div class="grid row item five" draggable="true" data-index="{{ idx }}">
           <div class="cell completed">{{ task['task'] }}</div>
           <div class="cell status-cell">
             <span class="status-dot {{ scls }}"></span>
@@ -99,26 +129,24 @@
           </div>
           <div class="cell">
             <div class="tags-view">
-              {% set taglist=(task.get('tags','') or '').split(',') %}
-              {% for tag in taglist if tag.strip() %}
-              <span class="tag-pill tcolor-{{ loop.index0 % 6 }}" data-n="{{ '%02d' % (loop.index) }}">{{ tag.strip()
-                }}</span>
+              {% for tag in (task.get('tags','') or '').split(',') if tag.strip() %}
+                <span class="tag-pill" data-tag="{{ tag.strip() }}" data-n="{{ '%02d' % (loop.index) }}">{{ tag.strip() }}</span>
               {% endfor %}
             </div>
           </div>
-          <div class="cell">{{ task['comment'] }}</div>
+          <div class="cell"><span class="due-chip {{ due_class }}">{{ due or '—' }}</span></div>
+          <div class="cell"><div class="md">{{ task['comment'] }}</div></div>
         </div>
         {% endfor %}
       </div>
       {% endif %}
 
-      <!-- Add new -->
-      <form class="add grid" method="POST" action="{{ url_for('add_task', task_date=today) }}">
+      <!-- Add new row -->
+      <form class="add grid five" method="POST" action="{{ url_for('add_task', task_date=today) }}">
         <input type="text" name="task" placeholder="New task…" required />
-        <select name="status" disabled>
-          <option selected>New</option>
-        </select>
-        <input type="text" name="tags" placeholder="Tags (comma separated)" />
+        <select name="status" disabled><option selected>New</option></select>
+        <input type="hidden" name="tags" value="">
+        <input type="date" name="due" />
         <input type="text" name="comment" placeholder="Comment (optional)" />
         <button type="submit">Add</button>
       </form>
@@ -127,16 +155,21 @@
     <!-- YESTERDAY (read-only) -->
     <section class="card">
       <h2>Yesterday — {{ yesterday_display }}</h2>
-      <div class="grid head">
-        <div>TASK</div>
-        <div>STATUS</div>
-        <div>TAGS</div>
-        <div>COMMENT</div>
+      <div class="grid head five">
+        <div class="th">TASK</div>
+        <div class="th">STATUS</div>
+        <div class="th">TAGS</div>
+        <div class="th">DEADLINE</div>
+        <div class="th">COMMENT</div>
       </div>
 
       {% for task in yesterday_active %}
       {% set scls = task['status']|replace(' ', '')|lower() %}
-      <div class="grid row">
+      {% set due = task.get('due','') %}
+      {% set due_class = 'due-none' %}
+      {% if due == iso_yesterday %}{% set due_class = 'due-warn' %}{% endif %}
+      {% if due == iso_today %}{% set due_class = 'due-danger' %}{% endif %}
+      <div class="grid row five">
         <div class="cell">{{ task['task'] }}</div>
         <div class="cell status-cell">
           <span class="status-dot {{ scls }}"></span>
@@ -145,12 +178,12 @@
         <div class="cell">
           <div class="tags-view">
             {% for tag in (task.get('tags','') or '').split(',') if tag.strip() %}
-            <span class="tag-pill tcolor-{{ loop.index0 % 6 }}" data-n="{{ '%02d' % (loop.index) }}">{{ tag.strip()
-              }}</span>
+              <span class="tag-pill" data-tag="{{ tag.strip() }}" data-n="{{ '%02d' % (loop.index) }}">{{ tag.strip() }}</span>
             {% endfor %}
           </div>
         </div>
-        <div class="cell">{{ task['comment'] }}</div>
+        <div class="cell"><span class="due-chip {{ due_class }}">{{ due or '—' }}</span></div>
+        <div class="cell"><div class="md">{{ task['comment'] }}</div></div>
       </div>
       {% endfor %}
 
@@ -158,7 +191,11 @@
       <h3 class="muted group-title">Completed</h3>
       {% for task in yesterday_completed %}
       {% set scls = task['status']|replace(' ', '')|lower() %}
-      <div class="grid row">
+      {% set due = task.get('due','') %}
+      {% set due_class = 'due-none' %}
+      {% if due == iso_yesterday %}{% set due_class = 'due-warn' %}{% endif %}
+      {% if due == iso_today %}{% set due_class = 'due-danger' %}{% endif %}
+      <div class="grid row five">
         <div class="cell completed">{{ task['task'] }}</div>
         <div class="cell status-cell">
           <span class="status-dot {{ scls }}"></span>
@@ -167,18 +204,18 @@
         <div class="cell">
           <div class="tags-view">
             {% for tag in (task.get('tags','') or '').split(',') if tag.strip() %}
-            <span class="tag-pill tcolor-{{ loop.index0 % 6 }}" data-n="{{ '%02d' % (loop.index) }}">{{ tag.strip()
-              }}</span>
+              <span class="tag-pill" data-tag="{{ tag.strip() }}" data-n="{{ '%02d' % (loop.index) }}">{{ tag.strip() }}</span>
             {% endfor %}
           </div>
         </div>
-        <div class="cell">{{ task['comment'] }}</div>
+        <div class="cell"><span class="due-chip {{ due_class }}">{{ due or '—' }}</span></div>
+        <div class="cell"><div class="md">{{ task['comment'] }}</div></div>
       </div>
       {% endfor %}
       {% endif %}
     </section>
 
-    <!-- ARCHIVES (read-only, collapsible) -->
+    <!-- ARCHIVES -->
     <section class="card">
       <h2>Archives</h2>
       <div class="accordion">
@@ -191,16 +228,21 @@
             <span class="badge">{{ tasks|length }}</span>
           </summary>
 
-          <div class="grid head inner">
-            <div>TASK</div>
-            <div>STATUS</div>
-            <div>TAGS</div>
-            <div>COMMENT</div>
+          <div class="grid head five inner">
+            <div class="th">TASK</div>
+            <div class="th">STATUS</div>
+            <div class="th">TAGS</div>
+            <div class="th">DEADLINE</div>
+            <div class="th">COMMENT</div>
           </div>
 
           {% for t in a_active %}
           {% set scls = t['status']|replace(' ', '')|lower() %}
-          <div class="grid row inner">
+          {% set due = t.get('due','') %}
+          {% set due_class = 'due-none' %}
+          {% if due == iso_yesterday %}{% set due_class = 'due-warn' %}{% endif %}
+          {% if due == iso_today %}{% set due_class = 'due-danger' %}{% endif %}
+          <div class="grid row five inner">
             <div class="cell">{{ t['task'] }}</div>
             <div class="cell status-cell">
               <span class="status-dot {{ scls }}"></span>
@@ -209,12 +251,12 @@
             <div class="cell">
               <div class="tags-view">
                 {% for tag in (t.get('tags','') or '').split(',') if tag.strip() %}
-                <span class="tag-pill tcolor-{{ loop.index0 % 6 }}" data-n="{{ '%02d' % (loop.index) }}">{{ tag.strip()
-                  }}</span>
+                  <span class="tag-pill" data-tag="{{ tag.strip() }}" data-n="{{ '%02d' % (loop.index) }}">{{ tag.strip() }}</span>
                 {% endfor %}
               </div>
             </div>
-            <div class="cell">{{ t['comment'] }}</div>
+            <div class="cell"><span class="due-chip {{ due_class }}">{{ due or '—' }}</span></div>
+            <div class="cell"><div class="md">{{ t['comment'] }}</div></div>
           </div>
           {% endfor %}
 
@@ -222,7 +264,11 @@
           <h4 class="muted group-title inner">Completed</h4>
           {% for t in a_done %}
           {% set scls = t['status']|replace(' ', '')|lower() %}
-          <div class="grid row inner">
+          {% set due = t.get('due','') %}
+          {% set due_class = 'due-none' %}
+          {% if due == iso_yesterday %}{% set due_class = 'due-warn' %}{% endif %}
+          {% if due == iso_today %}{% set due_class = 'due-danger' %}{% endif %}
+          <div class="grid row five inner">
             <div class="cell completed">{{ t['task'] }}</div>
             <div class="cell status-cell">
               <span class="status-dot {{ scls }}"></span>
@@ -231,12 +277,12 @@
             <div class="cell">
               <div class="tags-view">
                 {% for tag in (t.get('tags','') or '').split(',') if tag.strip() %}
-                <span class="tag-pill tcolor-{{ loop.index0 % 6 }}" data-n="{{ '%02d' % (loop.index) }}">{{ tag.strip()
-                  }}</span>
+                  <span class="tag-pill" data-tag="{{ tag.strip() }}" data-n="{{ '%02d' % (loop.index) }}">{{ tag.strip() }}</span>
                 {% endfor %}
               </div>
             </div>
-            <div class="cell">{{ t['comment'] }}</div>
+            <div class="cell"><span class="due-chip {{ due_class }}">{{ due or '—' }}</span></div>
+            <div class="cell"><div class="md">{{ t['comment'] }}</div></div>
           </div>
           {% endfor %}
           {% endif %}
@@ -250,7 +296,19 @@
     </footer>
   </div>
 
-  <script src="{{ url_for('static', filename='app.js') }}"></script>
-</body>
+  <!-- Tag Modal -->
+  <div class="modal" id="tagModal" aria-hidden="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card">
+      <h3>Add tag</h3>
+      <input id="tagInput" type="text" placeholder="Type a tag and press Enter">
+      <div class="modal-actions">
+        <button id="tagCancel">Cancel</button>
+        <button id="tagSave">Add</button>
+      </div>
+    </div>
+  </div>
 
+  <script src="{{ url_for('static', filename='app.js') }}?v=10"></script>
+</body>
 </html>
