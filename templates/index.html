@@ -19,10 +19,10 @@
 
     <!-- Center brand -->
     <div class="brand center">
-      <div class="logo" aria-hidden="true">☑️</div>
+  
       <div class="titles">
         <h1>Task Organizer</h1>
-        <p class="subtitle">Local · Private · Fast</p>
+        <p class="subtitle" align="center">Local · Private · Fast</p>
       </div>
     </div>
 
@@ -167,73 +167,78 @@
     </section>
 
     <!-- YESTERDAY (read-only) -->
-    <section class="card">
-      <h2>Yesterday — {{ yesterday_display }}</h2>
-      <div class="grid head five">
-        <div class="th">TASK</div>
-        <div class="th">STATUS</div>
-        <div class="th">TAGS</div>
-        <div class="th">DEADLINE</div>
-        <div class="th">COMMENT</div>
-      </div>
+<section class="card">
+  <details class="accordion-item remember" data-remember="yesterday:{{ iso_yesterday }}">
+    <summary>
+      <span class="archive">Yesterday — {{ yesterday_display }}</span>
+      <span class="badge">
+        {{ (yesterday_active|length) + (yesterday_completed|length) }}
+      </span>
+    </summary>
 
-      {% for task in yesterday_active %}
-      {% set scls = task['status']|replace(' ', '')|lower() %}
-      {% set due = task.get('due','') %}
-      {% set due_class = 'due-none' %}
-      {% if due == iso_yesterday %}{% set due_class = 'due-warn' %}{% endif %}
-      {% if due == iso_today %}{% set due_class = 'due-danger' %}{% endif %}
-      <div class="grid row five">
-        <div class="cell">{{ task['task'] }}</div>
-        <div class="cell status-cell">
-          <span class="status-dot {{ scls }}"></span>
-          <span class="status-badge status-{{ scls }}">{{ task['status'] }}</span>
-        </div>
-        <div class="cell">
-          <div class="tags-view">
-            {% for tag in (task.get('tags','') or '').split(',') if tag.strip() %}
-            <span class="tag-pill" data-tag="{{ tag.strip() }}" data-n="{{ '%02d' % (loop.index) }}">{{ tag.strip()
-              }}</span>
-            {% endfor %}
-          </div>
-        </div>
-        <div class="cell"><span class="due-chip {{ due_class }}">{{ due and (due|fmt_date) or '—' }}</span></div>
-        <div class="cell">
-          <div class="md">{{ task['comment'] }}</div>
-        </div>
-      </div>
-      {% endfor %}
+    <div class="grid head five inner">
+      <div class="th">TASK</div>
+      <div class="th">STATUS</div>
+      <div class="th">TAGS</div>
+      <div class="th">DEADLINE</div>
+      <div class="th">COMMENT</div>
+    </div>
 
-      {% if yesterday_completed %}
-      <h3 class="muted group-title">Completed</h3>
-      {% for task in yesterday_completed %}
-      {% set scls = task['status']|replace(' ', '')|lower() %}
-      {% set due = task.get('due','') %}
-      {% set due_class = 'due-none' %}
-      {% if due == iso_yesterday %}{% set due_class = 'due-warn' %}{% endif %}
-      {% if due == iso_today %}{% set due_class = 'due-danger' %}{% endif %}
-      <div class="grid row five">
-        <div class="cell completed">{{ task['task'] }}</div>
-        <div class="cell status-cell">
-          <span class="status-dot {{ scls }}"></span>
-          <span class="status-badge status-{{ scls }}">{{ task['status'] }}</span>
-        </div>
-        <div class="cell">
-          <div class="tags-view">
-            {% for tag in (task.get('tags','') or '').split(',') if tag.strip() %}
-            <span class="tag-pill" data-tag="{{ tag.strip() }}" data-n="{{ '%02d' % (loop.index) }}">{{ tag.strip()
-              }}</span>
-            {% endfor %}
-          </div>
-        </div>
-        <div class="cell"><span class="due-chip {{ due_class }}">{{ due and (due|fmt_date) or '—' }}</span></div>
-        <div class="cell">
-          <div class="md">{{ task['comment'] }}</div>
+    {# Active #}
+    {% for task in yesterday_active %}
+    {% set scls = task['status']|replace(' ', '')|lower() %}
+    {% set due = task.get('due','') %}
+    {% set due_class = 'due-none' %}
+    {% if due == iso_yesterday %}{% set due_class = 'due-warn' %}{% endif %}
+    {% if due == iso_today %}{% set due_class = 'due-danger' %}{% endif %}
+    <div class="grid row five inner">
+      <div class="cell">{{ task['task'] }}</div>
+      <div class="cell status-cell">
+        <span class="status-dot {{ scls }}"></span>
+        <span class="status-badge status-{{ scls }}">{{ task['status'] }}</span>
+      </div>
+      <div class="cell">
+        <div class="tags-view">
+          {% for tag in (task.get('tags','') or '').split(',') if tag.strip() %}
+            <span class="tag-pill" data-tag="{{ tag.strip() }}" data-n="{{ '%02d' % (loop.index) }}">{{ tag.strip() }}</span>
+          {% endfor %}
         </div>
       </div>
-      {% endfor %}
-      {% endif %}
-    </section>
+      <div class="cell"><span class="due-chip {{ due_class }}">{{ due and (due|fmt_date) or '—' }}</span></div>
+      <div class="cell"><div class="md">{{ task['comment'] }}</div></div>
+    </div>
+    {% endfor %}
+
+    {# Completed #}
+    {% if yesterday_completed %}
+    <h3 class="muted group-title inner">Completed</h3>
+    {% for task in yesterday_completed %}
+    {% set scls = task['status']|replace(' ', '')|lower() %}
+    {% set due = task.get('due','') %}
+    {% set due_class = 'due-none' %}
+    {% if due == iso_yesterday %}{% set due_class = 'due-warn' %}{% endif %}
+    {% if due == iso_today %}{% set due_class = 'due-danger' %}{% endif %}
+    <div class="grid row five inner">
+      <div class="cell completed">{{ task['task'] }}</div>
+      <div class="cell status-cell">
+        <span class="status-dot {{ scls }}"></span>
+        <span class="status-badge status-{{ scls }}">{{ task['status'] }}</span>
+      </div>
+      <div class="cell">
+        <div class="tags-view">
+          {% for tag in (task.get('tags','') or '').split(',') if tag.strip() %}
+            <span class="tag-pill" data-tag="{{ tag.strip() }}" data-n="{{ '%02d' % (loop.index) }}">{{ tag.strip() }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="cell"><span class="due-chip {{ due_class }}">{{ due and (due|fmt_date) or '—' }}</span></div>
+      <div class="cell"><div class="md">{{ task['comment'] }}</div></div>
+    </div>
+    {% endfor %}
+    {% endif %}
+  </details>
+</section>
+
 
     <!-- ARCHIVES -->
     <section class="card">
