@@ -32,62 +32,9 @@
   setInterval(maybeReload, 5*60*1000);
 })();
 
-/* ===== Drag & Drop (Today only) ===== */
-(function(){
-  const containers = document.querySelectorAll('.draggable');
-  if (!containers.length) return;
-  containers.forEach(container => {
-    const dateKey = container.dataset.date;
-    const isToday = document.body.dataset.today === dateKey;
-    if (!isToday) return;
 
-    let draggingEl = null;
-    container.addEventListener('dragstart', e => {
-      const row = e.target.closest('.item'); if (!row) return;
-      draggingEl = row; row.classList.add('dragging'); e.dataTransfer.effectAllowed='move';
-    });
-    container.addEventListener('dragend', e => {
-      const row = e.target.closest('.item'); if (row) row.classList.remove('dragging');
-      draggingEl = null; persistOrder(container, dateKey);
-    });
-    container.addEventListener('dragover', e => {
-      e.preventDefault();
-      const afterEl = getDragAfterElement(container, e.clientY);
-      if (!draggingEl) return;
-      if (afterEl == null) container.appendChild(draggingEl);
-      else container.insertBefore(draggingEl, afterEl);
-    });
-  });
 
-  function getDragAfterElement(container, y){
-    const els=[...container.querySelectorAll('.item:not(.dragging)')];
-    return els.reduce((closest, child) => {
-      const box=child.getBoundingClientRect();
-      const offset=y - box.top - box.height/2;
-      if (offset < 0 && offset > closest.offset) return {offset, element:child};
-      return closest;
-    }, {offset:Number.NEGATIVE_INFINITY}).element;
-  }
-  function persistOrder(container, dateKey){
-    const items=container.querySelectorAll('.item');
-    const order=Array.from(items).map(el=>parseInt(el.dataset.index,10)).filter(n=>!isNaN(n));
-    fetch(`/reorder/${encodeURIComponent(dateKey)}`,{
-      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({order})
-    }).catch(()=>{});
-  }
-})();
 
-/* ===== Deterministic tag colors (same tag -> same color) ===== */
-(function(){
-  const PALETTE = ['tcolor-0','tcolor-1','tcolor-2','tcolor-3','tcolor-4','tcolor-5'];
-  const hash = (s) => { let h=2166136261>>>0; for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619);} return h>>>0; };
-  document.querySelectorAll('.tag-pill').forEach(pill => {
-    const tag = (pill.dataset.tag || pill.textContent || '').trim().toLowerCase();
-    const idx = tag ? hash(tag) % PALETTE.length : 0;
-    pill.classList.remove(...PALETTE);
-    pill.classList.add(PALETTE[idx]);
-  });
-})();
 
 /* ===== Tags: + Tag modal ===== */
 (function(){
@@ -356,4 +303,130 @@
     if (e.key.toLowerCase() === 't'){ e.preventDefault(); btn.click(); }
   });
 })();
+
+/* ========= Drag & Drop (TODAY only) ========= */
+(function(){
+  const containers = document.querySelectorAll('.draggable');
+  if (!containers.length) return;
+
+  containers.forEach(container => {
+    const dateKey = container.dataset.date;
+    const isToday = document.body.dataset.today === dateKey;
+    if (!isToday) return; // only Today is draggable
+
+    let draggingEl = null;
+
+    container.addEventListener('dragstart', e => {
+      const row = e.target.closest('.item');
+      if (!row) return;
+      draggingEl = row;
+      row.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+
+    container.addEventListener('dragend', e => {
+      const row = e.target.closest('.item');
+      if (row) row.classList.remove('dragging');
+      draggingEl = null;
+      // ⬇️ SAVE order for the WHOLE day (active + completed)
+      persistOrder(dateKey);
+    });
+
+    container.addEventListener('dragover', e => {
+      e.preventDefault();
+      const afterEl = getDragAfterElement(container, e.clientY);
+      if (!draggingEl) return;
+      if (afterEl == null) container.appendChild(draggingEl);
+      else container.insertBefore(draggingEl, afterEl);
+    });
+  });
+
+  function getDragAfterElement(container, y) {
+    const els = [...container.querySelectorAll('.item:not(.dragging)')];
+    return els.reduce((closest, child) => {
+      const box = child.getBoundingClientRect();
+      const offset = y - box.top - box.height / 2;
+      if (offset < 0 && offset > closest.offset) {
+        return { offset, element: child };
+      } else {
+        return closest;
+      }
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+  }
+
+  // ✅ Build order across BOTH lists for the date (active + completed)
+  function persistOrder(dateKey) {
+    // select all .draggable containers for the same date
+    const lists = document.querySelectorAll(`.draggable[data-date="${cssEscape(dateKey)}"]`);
+    const items = [];
+    lists.forEach(list => {
+      list.querySelectorAll('.item').forEach(el => items.push(el));
+    });
+    // order must cover ALL tasks for the day (original indices)
+    const order = items
+      .map(el => parseInt(el.dataset.index, 10))
+      .filter(n => !Number.isNaN(n));
+
+    fetch(`/reorder/${encodeURIComponent(dateKey)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order })
+    }).then(res => {
+      if (!res.ok) {
+        console.error('Reorder save failed:', res.status, res.statusText);
+      }
+    }).catch(err => console.error('Reorder network error:', err));
+  }
+
+  // CSS.escape polyfill (minimal)
+  function cssEscape(sel){
+    if (window.CSS && CSS.escape) return CSS.escape(sel);
+    return String(sel).replace(/["\\#%&'()*+,.\/:;<=>?@\[\\\]^`{|}~]/g, '\\$&');
+  }
+})();
+
+/* ===== Tag colors: global consistency + per-row collision avoidance ===== */
+(function(){
+  const PALETTE = [
+    'tcolor-0','tcolor-1','tcolor-2','tcolor-3','tcolor-4','tcolor-5',
+    'tcolor-6','tcolor-7','tcolor-8','tcolor-9','tcolor-10','tcolor-11'
+  ];
+
+  // Very fast, stable hash
+  const hash = (s) => { let h=2166136261>>>0; for (let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619);} return h>>>0; };
+
+  // Global map: tag -> chosen color index (so "bug" is always same color everywhere)
+  const globalColor = new Map();
+
+  // For each tags row, avoid giving two different tags the same color if we can
+  document.querySelectorAll('.tags-view').forEach(view => {
+    const usedInRow = new Set();
+
+    view.querySelectorAll('.tag-pill').forEach(pill => {
+      const key = (pill.dataset.tag || pill.textContent || '').trim().toLowerCase();
+
+      // Preferred global color (deterministic by content)
+      let idx = globalColor.has(key) ? globalColor.get(key) : (hash(key) % PALETTE.length);
+
+      // If this color is already used in THIS row by another tag,
+      // try to find the next free color in the palette (wrap around).
+      if (!globalColor.has(key)) {
+        let guard = 0;
+        while (usedInRow.has(idx) && guard < PALETTE.length) {
+          idx = (idx + 1) % PALETTE.length;
+          guard++;
+        }
+        // Lock this color globally for this tag so it stays consistent elsewhere
+        globalColor.set(key, idx);
+      }
+
+      // Apply color and mark as used in this row
+      pill.classList.remove(...PALETTE);
+      pill.classList.add(PALETTE[idx]);
+      usedInRow.add(idx);
+    });
+  });
+})();
+
+
 

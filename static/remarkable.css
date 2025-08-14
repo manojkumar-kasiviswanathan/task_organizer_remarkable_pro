@@ -202,3 +202,18 @@ textarea.comment-ta{ overflow: hidden; }  /* lets height grow with JS */
   background: color-mix(in srgb, var(--accent) 18%, var(--card));
 }
 
+/* Tag color palette (12 hues) */
+.tcolor-0  { background:#e57373; }  /* soft red    */
+.tcolor-1  { background:#64b5f6; }  /* soft blue   */
+.tcolor-2  { background:#81c784; }  /* soft green  */
+.tcolor-3  { background:#ba68c8; }  /* soft purple */
+.tcolor-4  { background:#ffd54f; color:#222; } /* amber */
+.tcolor-5  { background:#4db6ac; }  /* teal */
+.tcolor-6  { background:#ff8a65; }  /* coral */
+.tcolor-7  { background:#9575cd; }  /* violet */
+.tcolor-8  { background:#4fc3f7; }  /* sky */
+.tcolor-9  { background:#aed581; }  /* lime */
+.tcolor-10 { background:#f06292; }  /* pink */
+.tcolor-11 { background:#a1887f; }  /* brown */
+
+
